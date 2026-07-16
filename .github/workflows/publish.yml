@@ -1,8 +1,14 @@
 name: Publish to npm
 
-# Auto-publish on every push to main. The job only runs `npm publish` when the
-# version in package.json is not already on npm, so re-pushing main (docs, CI,
-# refactors) is a safe no-op. Bump the version in package.json to release.
+# Auto-publish on every push to main. Gates on a vulnerability audit and a
+# registry-signature check before publishing, and only runs npm publish when
+# the version in package.json isn't already on npm (so re-pushing main for
+# docs/refactors is a safe no-op). Bump package.json's version to release.
+#
+# Publishes with --provenance: a Sigstore-signed attestation linking the
+# published package to this exact commit/workflow run, verifiable on the
+# npm package page. Requires the `id-token: write` permission below; no
+# extra npmjs.com configuration needed.
 on:
   push:
     branches: [main]
@@ -13,6 +19,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      id-token: write
     steps:
       - uses: actions/checkout@v4
 
@@ -30,6 +37,12 @@ jobs:
       - name: Test
         run: npm test
 
+      - name: Audit dependencies (fail on high/critical)
+        run: npm audit --omit=dev --audit-level=high
+
+      - name: Verify registry signatures
+        run: npm audit signatures
+
       - name: Publish to npm (only if the version changed)
         run: |
           NAME=$(node -p "require('./package.json').name")
@@ -38,7 +51,7 @@ jobs:
             echo "✓ $NAME@$VERSION is already published — skipping."
           else
             echo "→ Publishing $NAME@$VERSION"
-            npm publish --access public
+            npm publish --access public --provenance
           fi
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
