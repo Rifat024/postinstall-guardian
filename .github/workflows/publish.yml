@@ -1,0 +1,44 @@
+name: Publish to npm
+
+# Auto-publish on every push to main. The job only runs `npm publish` when the
+# version in package.json is not already on npm, so re-pushing main (docs, CI,
+# refactors) is a safe no-op. Bump the version in package.json to release.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Test
+        run: npm test
+
+      - name: Publish to npm (only if the version changed)
+        run: |
+          NAME=$(node -p "require('./package.json').name")
+          VERSION=$(node -p "require('./package.json').version")
+          if npm view "$NAME@$VERSION" version >/dev/null 2>&1; then
+            echo "✓ $NAME@$VERSION is already published — skipping."
+          else
+            echo "→ Publishing $NAME@$VERSION"
+            npm publish --access public
+          fi
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
