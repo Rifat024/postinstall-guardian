@@ -1,6 +1,6 @@
 {
   "name": "postinstall-guardian",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Scan node_modules for preinstall/install/postinstall scripts (the #1 npm supply-chain attack vector) and gate CI on any that aren't explicitly approved.",
   "license": "MIT",
   "main": "dist/index.js",
